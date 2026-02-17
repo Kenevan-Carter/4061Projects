@@ -1,6 +1,13 @@
 # MapReduce
 
 ### Project Overview
+Group Project by:
+    Adam Rakowski ~ rakow026@umn.edu
+    Kenevan Carter ~ cart0660@umn.edu
+
+Context: We are given log files containing thousands of requests of entry and the process of extracting the ip addresses from each line in the file to find the number of requests per address takes a long time.
+
+Problem: How can we extract these addresses quickly using parallel computation similar to that of mapReduce by Google.
 
 Write a high-level overview of your MapReduce implementation here.
 - - - - - - - - - - - - - - - - - - Main.c - - - - - - - - - - - - - - - - - -
