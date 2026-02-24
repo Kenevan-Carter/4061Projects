@@ -1,0 +1,8 @@
+/intermediate
+/out
+/test_results
+map
+combine
+reduce
+mapreduce
+*.o
