@@ -58,10 +58,6 @@ void table_free(table_t *table) {
 }
 
 int table_add(table_t *table, bucket_t *bucket) {
-    if (table_get(table, bucket->ip) != NULL) {
-        perror("Bucket already exists");
-        return -1;
-    }
     if (table == NULL || bucket == NULL || bucket->ip[0] == '\0') {
         perror("Invalid table or bucket");
         return -1;
@@ -70,6 +66,11 @@ int table_add(table_t *table, bucket_t *bucket) {
     if (hash < 0) {
         perror("Invalid hash");
         return -1;
+    }
+    bucket_t *existing = table_get(table, bucket->ip);
+    if (existing != NULL) {
+        existing->requests++;
+        return 0;
     }
     bucket->next = table->buckets[hash];
     table->buckets[hash] = bucket;
