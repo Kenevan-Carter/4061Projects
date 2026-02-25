@@ -18,7 +18,6 @@ int main(int argc, char *argv[]) {
             "Usage: reduce <read dir> <out file> <start ip> <end ip>\n");
     return 1;
   }
-  // Convert command line IPs from strings into integers
   // Check if the start IP is valid
   char *endptr = NULL;
   errno = 0;
@@ -40,7 +39,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "reduce: invalid IP range");
     return 1;
   }
-  // Initialize the master table and check if it is valid
+  // Initialize the table and check if it is valid
   table_t *table = table_init();
   if (table == NULL) {
     return 1;
@@ -48,7 +47,7 @@ int main(int argc, char *argv[]) {
   // Open the directory and check if it is valid
   DIR *dir = opendir(argv[1]);
   if (dir == NULL) {
-    perror("Failed to open directory");
+    perror("opendir: No such file or directory");
     table_free(table);
     return 1;
   }
@@ -89,7 +88,8 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-int reduce_file(table_t *table, const char file_path[MAX_PATH], const int start_ip, const int end_ip) {
+int reduce_file(table_t *table, const char file_path[MAX_PATH],
+                const int start_ip, const int end_ip) {
   // Check if the arguments are valid
   if (table == NULL || file_path == NULL || start_ip < 0 || end_ip > 256 ||
       start_ip >= end_ip) {
