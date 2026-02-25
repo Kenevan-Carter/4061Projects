@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "reduce: invalid IP range");
     return 1;
   }
-  // Initialize the table and check if it is valid
+  // Initialize the master table and check if it is valid
   table_t *table = table_init();
   if (table == NULL) {
     return 1;
