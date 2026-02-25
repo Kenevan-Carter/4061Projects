@@ -11,7 +11,7 @@
 
 int main(int argc, char *argv[]) {
     if (argc < 3) {
-        fprintf(stderr, "Usage: map <outfile> <infiles...>\n", argv[0]);
+        fprintf(stderr, "Usage: map <outfile> <infiles...>\n");
         return EXIT_FAILURE;
     }
     FILE *fd = fopen(argv[1], "w");
@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
     for (int i = 2; i < argc; i++) {
         map_log(table, argv[i]);
     }
-    table_to_file(table, fd);
+    table_to_file(table, argv[1]);
     table_free(table);
     fclose(fd);
     return 0;
@@ -42,7 +42,7 @@ int map_log(table_t *table, const char file_path[MAX_PATH]) {
     while (fgets(line, sizeof(line), f)) {
         char *ip = strtok(line, ",");  // date
         ip = strtok(NULL, ",");         // ip address
-        table_add(table, ip);
+        table_add(table, bucket_init(ip));
     }
     fclose(f);
     return 0;
