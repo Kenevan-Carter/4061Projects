@@ -89,8 +89,7 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-int reduce_file(table_t *table, const char file_path[MAX_PATH],
-                const int start_ip, const int end_ip) {
+int reduce_file(table_t *table, const char file_path[MAX_PATH], const int start_ip, const int end_ip) {
   // Check if the arguments are valid
   if (table == NULL || file_path == NULL || start_ip < 0 || end_ip > 256 ||
       start_ip >= end_ip) {

@@ -10,12 +10,12 @@
 #include "./include/map.h"
 
 int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        fprintf(stderr, "Usage: mapreduce <directory> <n mappers> <n reducers>\n", argv[0]);
+    if (argc < 4) {
+        fprintf(stderr, "Usage: mapreduce <directory> <n mappers> <n reducers>\n");
         return EXIT_FAILURE;
     }
-    int num_mappers = argv[2];
-    int num_reducers = argv[3];
+    int num_mappers = atoi(argv[2]);
+    int num_reducers = atoi(argv[3]);
     if (num_mappers<=0 || num_reducers<=0){
         fprintf(stderr, "mapreduce: cannot have less than one mapper or reducer\n");
         return EXIT_FAILURE;
@@ -41,27 +41,32 @@ int main(int argc, char *argv[]) {
 
 
     //assign files to mappers
-    int files_per_mapper = count /num_mappers;
+    int files_per_mapper = count / num_mappers;
     int remainder = count % num_mappers;
+    printf("Total files: %d, Files per mapper: %d, Remainder: %d\n", count, files_per_mapper, remainder);
     for (int i = 0; i < num_mappers; i++) {
         pid_t pid = fork();
-        if (pid == 0) {  // on successful fork...
+        if (pid == 0) {
             int start = i * files_per_mapper;
             int end = start + files_per_mapper;
-            // Last mapper gets remainder
             if (i == num_mappers - 1)
                 end += remainder;
+            char outfile[256];
+            snprintf(outfile, sizeof(outfile), "./intermediate/%d_table.tbl", i);
             for (int j = start; j < end; j++) {
-                // create output file name for mapper then pass output and input parameters to the function
-                char outfile[256];
-                snprintf(outfile, sizeof(outfile), "/intermediate/%d_table.tbl", i);
-                map(outfile, files[j]);
+                execv("./map", (char *[]){
+                    "./map",
+                    outfile,  
+                    files[j],    
+                    NULL
+                });
             }
-            exit(0);
-        }
-        else if (pid <0) {
-            fprintf(stderr, "Failed to fork mapper process");
-            return;
+            perror("execv failed");
+            exit(1);
+        } 
+        else if (pid == -1) {
+            fprintf(stderr, "Failed to fork reducer process\n");
+            return EXIT_FAILURE;
         }
     }
 
@@ -76,20 +81,30 @@ int main(int argc, char *argv[]) {
         }
     }
     int reduce_range = 256 / num_reducers;
-    int remainder = 256 % num_reducers;
+    int red_remainder = 256 % num_reducers;
     for (int i = 0; i < num_reducers; i++) {
         int start = i * reduce_range;
         int end = start + reduce_range;
         if (i == num_reducers - 1)
-            end += remainder;
+            end += red_remainder;
 
         pid_t pid = fork();
         if (pid == 0) {
-            char start_str[16], end_str[16];
+            char start_str[16], end_str[16], outfile[256];
             snprintf(start_str, sizeof(start_str), "%d", start);
             snprintf(end_str, sizeof(end_str), "%d", end);
-            execv("./reduce", (char *[]){ "./reduce", start_str, end_str, NULL });
-            exit(0);
+            snprintf(outfile, sizeof(outfile), "./intermediate/reduce_%d.tbl", i);
+
+            execv("./reduce", (char *[]){
+                "./reduce",
+                "./intermediate",  // read dir
+                outfile,           // out file
+                start_str,         // start ip
+                end_str,           // end ip
+                NULL
+            });
+            perror("execv failed");
+            exit(1);
         } else if (pid == -1) {
             fprintf(stderr, "Failed to fork reducer process\n");
             return EXIT_FAILURE;
@@ -98,11 +113,9 @@ int main(int argc, char *argv[]) {
 
     //wait for reducers to finish
     for (int i = 0; i < num_reducers; i++) {
-        int status;
-        pid_t finished = wait(&status);
-        
-        if (WEXITSTATUS(status) != 0) {
-            fprintf(stderr, "Reducer failed: status = %d\n", WEXITSTATUS(status));
+        int red_status;
+        if (WEXITSTATUS(red_status) != 0) {
+            fprintf(stderr, "Reducer failed: status = %d\n", WEXITSTATUS(red_status));
         }
     }
     return 0;
