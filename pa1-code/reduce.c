@@ -26,6 +26,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "reduce: invalid IP range");
     return 1;
   }
+  // Convert command line IPs from strings into integers
   // Check if the end IP is valid
   errno = 0;
   endptr = NULL;
