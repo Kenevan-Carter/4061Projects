@@ -67,11 +67,6 @@ int table_add(table_t *table, bucket_t *bucket) {
         perror("Invalid hash");
         return -1;
     }
-    bucket_t *existing = table_get(table, bucket->ip);
-    if (existing != NULL) {
-        existing->requests++;
-        return 0;
-    }
     bucket->next = table->buckets[hash];
     table->buckets[hash] = bucket;
     return 0;
@@ -99,19 +94,19 @@ bucket_t *table_get(table_t *table, const char ip[IP_LEN]) {
 
 int hash_ip(const char ip[IP_LEN]) {
     if (ip == NULL) {
-        perror("Invalid ip");
         return -1;
     }
     int hash = 0;
-    for (int i = 0; i < IP_LEN; i++) {
-        hash += ip[i];
+    // Stop at the null terminator
+    for (int i = 0; ip[i] != '\0'; i++) {
+        hash += (unsigned char)ip[i];
     }
     return hash % TABLE_LEN;
 }
 
 int table_to_file(table_t *table, const char out_file[MAX_PATH]) {
     if (table == NULL || out_file == NULL) {
-        perror("Invalud table or out_file");
+        perror("Invalid table or output file");
         return -1;
     }
     FILE *file = fopen(out_file,"wb");
