@@ -59,18 +59,62 @@ void read_blob_from_vault(uint64_t offset, uint32_t size, int out_fd)
 {
 
     // TODO: Open the vault, fseek() to the physical_offset.
+    // use File* and fopen because we need to use fpopen and fseek
     FILE* vault = fopen(".mgit/data.bin", "rb");
     fseek(vault, (long)offset, SEEK_SET)
     // TODO: Read `size` bytes and write them to `out_fd` using the write_all() helper.
+    char buffer[4096];
+    uint32_t bytes_remaining = size;
 
+    while (bytes_remaining > 0) {
+        uint32_t to_read = bytes_remaining < sizeof(buffer) ? bytes_remaining : sizeof(buffer);
+        size_t bytes_read = fread(buffer, 1, to_read, vault);
+        if (bytes_read == 0) break;
 
+        write_all(out_fd, buffer, bytes_read);
+        bytes_remaining -= bytes_read;
+    }
+    fclose(vault);
 }
+
 
 // --- Snapshot Management ---
 void store_snapshot_to_disk(Snapshot* snap)
 {
-    // TODO: Serialize the Snapshot struct and its linked list of FileEntry/BlockTables
-    // into a binary file inside `.mgit/snapshots/snap_XXX.bin`.
+    // Build the filename e.g. ".mgit/snapshots/snap_003.bin"
+    char path[64];
+    snprintf(path, sizeof(path), ".mgit/snapshots/snap_%03u.bin", snap->id);
+
+    FILE* fd = fopen(path, "wb");
+
+    // Write snapshot header
+    fwrite(&snap->id,sizeof(uint32_t), 1, fd);
+    fwrite(&snap->timestamp, sizeof(uint64_t), 1, fd);
+
+    uint32_t msg_len = strlen(snap->message);
+    fwrite(&msg_len,sizeof(uint32_t), 1,fd);
+    fwrite(snap->message, sizeof(char),msg_len, fd);
+
+    // Count files in linked list and write the count first
+    uint32_t num_files = 0;
+    FileEntry* cur = snap->files;
+    while (cur) { num_files++; cur = cur->next; }
+    fwrite(&num_files, sizeof(uint32_t), 1, fp);
+
+    // Write each FileEntry + its BlockTable
+    cur = snap->files;
+    while (cur) {
+        uint32_t name_len = strlen(cur->filename);
+        fwrite(&name_len,sizeof(uint32_t), 1, fp);
+        fwrite(cur->filename, sizeof(char),name_len, fp);
+
+        fwrite(&cur->block->physical_offset, sizeof(uint64_t), 1, fp);
+        fwrite(&cur->block->size, sizeof(uint32_t), 1, fp);
+
+        cur = cur->next;
+    }
+
+    fclose(fp);
 }
 
 Snapshot* load_snapshot_from_disk(uint32_t id)
