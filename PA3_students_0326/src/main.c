@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
     printf("Worker Threads: %s\n", argv[1]);
 
 
-    /* * TODO: 
+    /* * TODO:
      * 1. Initialize resources and load data files.
      * 2. Create producer and consumer threads.
      * 3. Implement thread joining and timing.
@@ -31,8 +31,61 @@ int main(int argc, char* argv[]) {
      */
 
     // --- YOUR CODE STARTS HERE ---
+    FILE *fd = fopen("data/weights.bin", "rb");
+    if (fd == NULL) {
+        perror("Failed to open weights.bin");
+        return 1;
+    }
 
+    FILE *ground_truth_fd = fopen("data/labels.bin", "rb");
+    if (ground_truth_fd == NULL) {
+        perror("Failed to open labels.bin");
+        fclose(fd);
+        return 1;
+    }
 
+    size_t n_read_ground_truth = fread(ground_truth, sizeof(int), TOTAL_IMAGES, ground_truth_fd);
+    if (n_read_ground_truth != TOTAL_IMAGES) {
+        perror("Failed to read correct number of ground truth");
+        fclose(fd);
+        fclose(ground_truth_fd);
+        return 1;
+    }
+    fclose(ground_truth_fd);
+
+    size_t n_read = fread(weights, sizeof(float), IMG_SIZE * NUM_CLASSES, fd);
+    if (n_read != IMG_SIZE * NUM_CLASSES) {
+        perror("Failed to read correct number of weights");
+        fclose(fd);
+        return 1;
+    }
+    fclose(fd);
+
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    int num_workers = atoi(argv[1]);
+    if (num_workers <= 0) {
+        printf("Number of workers must be greater than 0\n");
+        return 1;
+    }
+    pthread_t producer_thread;
+    pthread_t *workers = malloc((size_t)num_workers * sizeof(pthread_t));
+    if (workers == NULL) {
+        perror("Failed to allocate memory for workers");
+        return 1;
+    }
+    pthread_create(&producer_thread, NULL, producer, &num_workers);
+    for (int i = 0; i < num_workers; i++) {
+        pthread_create(&workers[i], NULL, consumer, NULL);
+    }
+
+    pthread_join(producer_thread, NULL);
+    for (int i = 0; i < num_workers; i++) {
+        pthread_join(workers[i], NULL);
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &end);
     // --- YOUR CODE ENDS HERE ---
 
 
