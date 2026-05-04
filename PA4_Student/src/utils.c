@@ -35,18 +35,26 @@ void bookeepingCode()
 // Wraps at the end of the alphabet: 'y'->'a', 'z'->'b', 'Y'->'A', 'Z'->'B'.
 static void shift_letter(char *c, int delta)
 {
+    // Convert the character to an unsigned char
     unsigned char ch = (unsigned char)*c;
+    // If the character is a lowercase letter
     if (ch >= 'a' && ch <= 'z') {
         int i = ch - 'a';
+        // Shift the letter by the delta
         i = (i + delta) % 26;
         if (i < 0)
             i += 26;
+        // Convert the letter back to a char
         *c = (char)('a' + i);
+    // If the character is an uppercase letter
     } else if (ch >= 'A' && ch <= 'Z') {
         int i = ch - 'A';
+        // Shift the letter by the delta
         i = (i + delta) % 26;
+        // If the letter is less than 0 wrap around to the end of the alphabet
         if (i < 0)
             i += 26;
+        // Convert the letter back to a char
         *c = (char)('A' + i);
     }
 }
