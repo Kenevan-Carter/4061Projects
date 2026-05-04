@@ -15,20 +15,42 @@ void printSyntax(){
 
 int connect_to_server(char *server_addr, int server_port)
 {
-    // TODO: create a TCP socket, connect to (server_addr, server_port),
-    //       return the socket fd.
-    return -1;
+    int fd= socket(AF_INET,SOCK_STREAM, 0);
+    if (fd <0) { perror("socket"); return -1; }
+
+
+    struct sockaddr_in addr = {.sin_family = AF_INET,.sin_port = htons(server_port)};
+    if (inet_pton(AF_INET, server_addr, &addr.sin_addr) <= 0) {
+        perror("inet_pton"); close(fd); return -1;
+    }
+    if (connect(fd , (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        perror("connect "); close( fd); return -1;
+    }
+    return fd;
 }
 
 void get_item_list(int sock_fd, FILE *log_fp)
 {
+
     int count = 0;
     // TODO: send the request, read the count, then loop reading items.
+    uint8_t op = LIST_ITEMS;
+    write(sock_fd, &op, 1);
+    read(sock_fd, &op, 1);   // ITEM_LIST
+    read(sock_fd, &count, sizeof(count));
+    count = ntohl(count);
     fprintf(log_fp, "=== Item List (%d items) ===\n", count);
     // TODO: for each item received:
     //   struct item it = ...;
     //   fprintf(log_fp, "  %s | stock: %d | price: $%.2f\n",
     //           it.name, it.stock, it.price);
+    for (int i = 0; i < count; i++) {
+    struct item it;
+    read(sock_fd, &it, sizeof(it));
+    it.stock = ntohl(it.stock);
+    fprintf(log_fp, "  %s | stock: %d | price: $%.2f\n",
+            it.name, it.stock, it.price);
+    }
     fprintf(log_fp, "\n");
 }
 
@@ -101,9 +123,42 @@ void sell_item(int sock_fd, char *item_name, int amount, FILE *log_fp)
 void process_input(int sock_fd)
 {
     // TODO
+    char line[ 256];
+    char arg1[ MAX_STR];
+    
+    int n;
+
+
+    while (1) {
+        if (isatty(0)) { 
+            printf("> "); fflush(stdout); 
+        }
+
+        if (!fgets(line, sizeof(line), stdin)) break;
+        line[strcspn(line, "\n")] = '\0';
+
+
+        if (strcmp(line,  "LIST") == 0) {
+            get_item_list(sock_fd, stdout);
+        } else if ( sscanf(line,"SEARCH %63s", arg1) == 1) {
+            search_item(sock_fd, arg1, stdout);
+
+        } else if ( sscanf(line, "ESEARCH %63s", arg1) ==1){
+            enc_search_item(sock_fd, arg1, stdout);
+        } else if (sscanf(line, "STOCK %63s", arg1) ==1) {
+            get_stock(sock_fd, arg1, stdout);
+        } else if (sscanf(line,"BUY %63s %d", arg1, &n) ==2) {
+            buy_item(sock_fd, arg1, n, stdout);
+        } else if(sscanf(line,  "SELL %63s %d", arg1, &n) == 2) {
+            sell_item(sock_fd, arg1, n, stdout);
+        } else if(strcmp(line,"QUIT") == 0) {
+            break;
+        }
+
+    }
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[]) // DONE
 {
     // TODO:
     //   1. check argc == 3, call printSyntax() on error
@@ -111,5 +166,12 @@ int main(int argc, char *argv[])
     //   3. sock_fd = connect_to_server(...)
     //   4. process_input(?)
     //   5. close(?)
+    if (argc != 3) { printSyntax(); return 1; }
+    char *server_addr = argv[1];
+    int   server_port = atoi(argv[2]);
+    int sock_fd = connect_to_server(server_addr, server_port);
+    if (sock_fd < 0) return 1;
+    process_input(sock_fd);
+    close(sock_fd);
     return 0;
 }
