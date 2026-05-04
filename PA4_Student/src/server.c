@@ -24,19 +24,18 @@ void load_inventory(char *filename)
 
     // Read the header line
     char line[256];
-    // If the header line is not read, set num_items to 0 and return
+    // If the header line is not read then set num_items to 0 and return
     if (fgets(line, sizeof line, fp) == NULL) {
         fclose(fp);
         num_items = 0;
         return;
     }
 
-    // Read the data lines
+    // Read the data lines until MAX_ITEMS is reached or the file is read to the end
     num_items = 0;
-    // Stops when MAX_ITEMS is reached or the file is read to the end
     while (num_items < MAX_ITEMS && fgets(line, sizeof line, fp) != NULL) {
         struct item *it = &inventory[num_items];
-        // If the line is read, increment num_items and set the item
+        // If the line is read increment num_items and set the item
         if (sscanf(line, "%63[^,],%d,%f", it->name, &it->stock, &it->price) == 3)
             num_items++;
     }
@@ -54,27 +53,27 @@ void load_inventory(char *filename)
 // ============================================================
 void handle_list_items(int client_fd)
 {
-    // Send the ITEM_LIST message
+    // Send the item list message
     msg_enum rsp = ITEM_LIST;
     if (write(client_fd, &rsp, sizeof(msg_enum)) != (ssize_t)sizeof(msg_enum))
         return;
 
-    // Lock the inventory_lock mutex
+    // Lock the inventory lock mutex
     pthread_mutex_lock(&inventory_lock);
     int n = num_items;
-    // Send the number of items
+    // Send the number of items to the client
     if (write(client_fd, &n, sizeof(int)) != (ssize_t)sizeof(int)) {
         pthread_mutex_unlock(&inventory_lock);
         return;
     }
-    // Send the items
+    // Send the items to the client
     for (int i = 0; i < n; i++) {
         if (write(client_fd, &inventory[i], sizeof(struct item)) != (ssize_t)sizeof(struct item)) {
             pthread_mutex_unlock(&inventory_lock);
             return;
         }
     }
-    // Unlock the inventory_lock mutex
+    // Unlock the inventory lock mutex
     pthread_mutex_unlock(&inventory_lock);
 }
 
@@ -87,35 +86,35 @@ void handle_list_items(int client_fd)
 // ============================================================
 void handle_search(int client_fd)
 {
-    // Read the query string
+    // Read the query string from the client
     char query[MAX_STR];
     memset(query, 0, sizeof(query));
     if (read(client_fd, query, sizeof(query)) != (ssize_t)sizeof(query))
         return;
 
-    // Initialize the results array
+    // Make the results array with max results size
     struct item results[MAX_RESULTS];
     int count = 0;
 
-    // Lock the inventory_lock mutex
+    // Lock the inventory lock mutex
     pthread_mutex_lock(&inventory_lock);
-    // Search for items that contain the query string
+    // Search for items that contain the string in the query
     for (int i = 0; i < num_items && count < MAX_RESULTS; i++) {
         if (strstr(inventory[i].name, query) != NULL)
             results[count++] = inventory[i];
     }
-    // Unlock the inventory_lock mutex
+    // Unlock the inventory lock mutex
     pthread_mutex_unlock(&inventory_lock);
 
-    // Send the SEARCH_RESULTS message
+    // Send the search results message to the client
     msg_enum rsp = SEARCH_RESULTS;
-    // Send the number of results if it is less than MAX_RESULTS
+    // Send the search results message to the client
     if (write(client_fd, &rsp, sizeof(msg_enum)) != (ssize_t)sizeof(msg_enum))
         return;
-    // Send the number of results if it is less than MAX_RESULTS
+    // Send the number of results to the client if its less than the max results size
     if (write(client_fd, &count, sizeof(int)) != (ssize_t)sizeof(int))
         return;
-    // Send the results if they are less than MAX_RESULTS
+    // Send the results to the client if they are less than the max results size
     for (int j = 0; j < count; j++) {
         if (write(client_fd, &results[j], sizeof(struct item)) != (ssize_t)sizeof(struct item))
             return;
@@ -131,38 +130,38 @@ void handle_search(int client_fd)
 // ============================================================
 void handle_enc_search(int client_fd)
 {
-    // Read the query string
+    // Read the query string from the client
     char query[MAX_STR];
     memset(query, 0, sizeof(query));
     if (read(client_fd, query, sizeof(query)) != (ssize_t)sizeof(query))
         return;
 
-    // Decrypt the query string
+    // Decrypt the query string with the caesar cipher in utils
     decrypt_str(query);
 
-    // Initialize the results array
+    // Make the results array with max results size
     struct item results[MAX_RESULTS];
     int count = 0;
 
-    // Lock the inventory_lock mutex
+    // Lock the inventory lock mutex
     pthread_mutex_lock(&inventory_lock);
-    // Search for items that contain the query string
+    // Search for items that contain the string in the query
     for (int i = 0; i < num_items && count < MAX_RESULTS; i++) {
         if (strstr(inventory[i].name, query) != NULL)
             results[count++] = inventory[i];
     }
-    // Unlock the inventory_lock mutex
+    // Unlock the inventory lock mutex
     pthread_mutex_unlock(&inventory_lock);
 
-    // Send the SEARCH_RESULTS message
+    // Send the search results message to the client
     msg_enum rsp = SEARCH_RESULTS;
-    // Send the SEARCH_RESULTS message
+    // Send the search results message to the client
     if (write(client_fd, &rsp, sizeof(msg_enum)) != (ssize_t)sizeof(msg_enum))
         return;
-    // Send the number of results if it is less than MAX_RESULTS
+    // Send the number of results to the client if its less than the max results size
     if (write(client_fd, &count, sizeof(int)) != (ssize_t)sizeof(int))
         return;
-    // Send the results if they are less than MAX_RESULTS
+    // Send the results to the client if they are less than the max results size
     for (int j = 0; j < count; j++) {
         if (write(client_fd, &results[j], sizeof(struct item)) != (ssize_t)sizeof(struct item))
             return;
@@ -177,15 +176,15 @@ void handle_enc_search(int client_fd)
 // ============================================================
 void handle_get_stock(int client_fd)
 {
-    // Read the item name
+    // Read the item name from the client
     char name[MAX_STR];
     memset(name, 0, sizeof(name));
     if (read(client_fd, name, sizeof(name)) != (ssize_t)sizeof(name))
         return;
 
-    // Lock the inventory_lock mutex
+    // Lock the inventory lock mutex
     pthread_mutex_lock(&inventory_lock);
-    // Search for the item
+    // Search for the item in the inventory
     int idx = -1;
     for (int i = 0; i < num_items; i++) {
         if (strcmp(inventory[i].name, name) == 0) {
@@ -193,7 +192,7 @@ void handle_get_stock(int client_fd)
             break;
         }
     }
-    // If the item is found, set the stock and price
+    // If the item is found set the stock and price
     int stock = 0;
     float price = 0.0f;
     if (idx >= 0) {
@@ -202,24 +201,25 @@ void handle_get_stock(int client_fd)
     }
     pthread_mutex_unlock(&inventory_lock);
 
-    // Send the STOCK_INFO message if the item is found
+    // Send the stock info message to the client if the item is found
     if (idx >= 0) {
         msg_enum rsp = STOCK_INFO;
-        // Send the STOCK_INFO message if the item is found
+        // Send the stock info message to the client if its found
         if (write(client_fd, &rsp, sizeof(msg_enum)) != (ssize_t)sizeof(msg_enum))
             return;
-        // Send the stock if the item is found
+        // Send the stock to the client if its found
         if (write(client_fd, &stock, sizeof(int)) != (ssize_t)sizeof(int))
             return;
-        // Send the price if the item is found
+        // Send the price to the client if its found
         if (write(client_fd, &price, sizeof(float)) != (ssize_t)sizeof(float))
             return;
-    } else { // Send the ERROR_MSG message if the item is not found
+    } else {
         msg_enum rsp = ERROR_MSG;
-        // Send the ERROR_MSG message if the item is not found
+        // Send the error message to the client if its not found
         char err[MAX_STR];
         memset(err, 0, sizeof(err));
         snprintf(err, sizeof(err), "item not found");
+        // Send the error message to the client if its not found
         if (write(client_fd, &rsp, sizeof(msg_enum)) != (ssize_t)sizeof(msg_enum))
             return;
         if (write(client_fd, err, sizeof(err)) != (ssize_t)sizeof(err))
@@ -247,9 +247,9 @@ void handle_buy_item(int client_fd)
     if (read(client_fd, &amount, sizeof(int)) != (ssize_t)sizeof(int))
         return;
 
-    // Lock the inventory_lock mutex
+    // Lock the inventory lock mutex
     pthread_mutex_lock(&inventory_lock);
-    // Search for the item
+    // Search for the item in the inventory
     int idx = -1;
     for (int i = 0; i < num_items; i++) {
         if (strcmp(inventory[i].name, name) == 0) {
@@ -257,49 +257,43 @@ void handle_buy_item(int client_fd)
             break;
         }
     }
-    // If the item is not found, send the ERROR_MSG message
+    // If the item is not found send the error message to the client
     if (idx < 0) {
         pthread_mutex_unlock(&inventory_lock);
         msg_enum rsp = ERROR_MSG;
-        // Send the ERROR_MSG message if the item is not found
         char err[MAX_STR];
         memset(err, 0, sizeof(err));
         snprintf(err, sizeof(err), "item not found");
-        // Send the ERROR_MSG message if the item is not found
         if (write(client_fd, &rsp, sizeof(msg_enum)) != (ssize_t)sizeof(msg_enum))
             return;
-        // Send the ERROR_MSG message if the item is not found
         write(client_fd, err, sizeof(err));
         return;
     }
 
-    // If the stock is less than the amount, send the ERROR_MSG message
+    // If the stock is less than the amount send the error message to the client
     if (inventory[idx].stock < amount) {
         pthread_mutex_unlock(&inventory_lock);
         msg_enum rsp = ERROR_MSG;
-        // Send the ERROR_MSG message if the stock is less than the amount
         char err[MAX_STR];
         memset(err, 0, sizeof(err));
-        snprintf(err, sizeof(err), "insufficient stock");
+        snprintf(err, sizeof(err), "not enough stock");
         if (write(client_fd, &rsp, sizeof(msg_enum)) != (ssize_t)sizeof(msg_enum))
             return;
-        // Send the ERROR_MSG message if the stock is less than the amount
         write(client_fd, err, sizeof(err));
         return;
     }
 
-    // Decrement the stock
+    // Decrease the stock by amount
     inventory[idx].stock -= amount;
     // Set the new stock
     int new_stock = inventory[idx].stock;
     // Set the total cost
     float total_cost = (float)amount * inventory[idx].price;
-    // Unlock the inventory_lock mutex
+    // Unlock the mutex
     pthread_mutex_unlock(&inventory_lock);
 
-    // Send the BUY_OK message
+    // Send the buy ok message to the client
     msg_enum rsp = BUY_OK;
-    // Send the BUY_OK message
     if (write(client_fd, &rsp, sizeof(msg_enum)) != (ssize_t)sizeof(msg_enum))
         return;
     // Send the new stock
@@ -328,7 +322,7 @@ void handle_sell_item(int client_fd)
     if (read(client_fd, &amount, sizeof(int)) != (ssize_t)sizeof(int))
         return;
 
-    // Lock the inventory_lock mutex
+    // Lock the mutex
     pthread_mutex_lock(&inventory_lock);
     // Search for the item
     int idx = -1;
@@ -338,29 +332,27 @@ void handle_sell_item(int client_fd)
             break;
         }
     }
-    // If the item is not found, send the ERROR_MSG message
+    // If the item is not found, send the error
     if (idx < 0) {
         pthread_mutex_unlock(&inventory_lock);
         msg_enum rsp = ERROR_MSG;
-        // Send the ERROR_MSG message if the item is not found
         char err[MAX_STR];
         memset(err, 0, sizeof(err));
         snprintf(err, sizeof(err), "item not found");
-        // Send the ERROR_MSG message if the item is not found
         if (write(client_fd, &rsp, sizeof(msg_enum)) != (ssize_t)sizeof(msg_enum))
             return;
         write(client_fd, err, sizeof(err));
         return;
     }
 
-    // Increment the stock
+    // Increase the stock by amount
     inventory[idx].stock += amount;
     // Set the new stock
     int new_stock = inventory[idx].stock;
-    // Unlock the inventory_lock mutex
+    // Unlock the mutex
     pthread_mutex_unlock(&inventory_lock);
 
-    // Send the SELL_OK message
+    // Send the sell ok message to the client
     msg_enum rsp = SELL_OK;
     if (write(client_fd, &rsp, sizeof(msg_enum)) != (ssize_t)sizeof(msg_enum))
         return;
@@ -380,14 +372,14 @@ void save_inventory()
         return;
     }
     fprintf(fp, "name,stock,price\n");
-    // Lock the inventory_lock mutex
+    // Lock the mutex
     pthread_mutex_lock(&inventory_lock);
     // Write the inventory to the file
     for (int i = 0; i < num_items; i++) {
         fprintf(fp, "%s,%d,%.2f\n",
                 inventory[i].name, inventory[i].stock, inventory[i].price);
     }
-    // Unlock the inventory_lock mutex and close file
+    // Unlock the mutex and close file
     pthread_mutex_unlock(&inventory_lock);
     fclose(fp);
 }
@@ -404,37 +396,28 @@ void *handle_client(void *arg)
     int client_fd = *(int *)arg;
     free(arg);
 
-    // Read the message from the client
+    // Read the message from the client in a loop until the client disconnects
     while (1) {
         msg_enum msg;
         if (read(client_fd, &msg, sizeof(msg)) != (ssize_t)sizeof(msg))
             break;
 
-        // Dispatch the message to the right handler
-        switch (msg) {
-        case LIST_ITEMS:
+        // Send the message to the right handler
+        if (msg == LIST_ITEMS)
             handle_list_items(client_fd);
-            break;
-        case SEARCH_ITEM:
+        else if (msg == SEARCH_ITEM)
             handle_search(client_fd);
-            break;
-        case ENC_SEARCH_ITEM:
+        else if (msg == ENC_SEARCH_ITEM)
             handle_enc_search(client_fd);
-            break;
-        case GET_STOCK:
+        else if (msg == GET_STOCK)
             handle_get_stock(client_fd);
-            break;
-        case BUY_ITEM:
+        else if (msg == BUY_ITEM)
             handle_buy_item(client_fd);
-            break;
-        case SELL_ITEM:
+        else if (msg == SELL_ITEM)
             handle_sell_item(client_fd);
-            break;
-        case TERMINATE:
+        else if (msg == TERMINATE) {
             close(client_fd);
             return NULL;
-        default:
-            break;
         }
     }
     // Close the client file descriptor
@@ -473,18 +456,17 @@ int main(int argc, char *argv[])
     // Register the signal handler
     signal(SIGTERM, sigterm_handler);
 
-    // Create the socket
+    // Create the socket and error check
     int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
-    // If the socket is not created, return 1
     if (listen_fd < 0) {
         perror("socket");
         return 1;
     }
 
-    // Set the socket option
+    // Set the socket option to reuse the address
     int opt = 1;
     setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-    // Create the address
+    // Create the address and error check
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
@@ -511,7 +493,6 @@ int main(int argc, char *argv[])
 
     // Accept incoming connections
     while (1) {
-        // Accept an incoming connection
         struct sockaddr_in client_addr;
         socklen_t len = sizeof(client_addr);
         int client_fd = accept(listen_fd, (struct sockaddr *)&client_addr, &len);
@@ -519,24 +500,22 @@ int main(int argc, char *argv[])
             perror("accept");
             continue;
         }
-
-        // Create a new thread for the client
+        // Create a new thread for the client and error check
         int *pfd = malloc(sizeof(int));
         if (pfd == NULL) {
             close(client_fd);
             continue;
         }
         *pfd = client_fd;
-        // Create a new thread for the client
+        // Create a new thread for the client and error check
         pthread_t tid;
-        // If the thread is not created, return 1
         if (pthread_create(&tid, NULL, handle_client, pfd) != 0) {
             perror("pthread_create");
             free(pfd);
             close(client_fd);
             continue;
         }
-        // Detach the thread
+        // Detach the thread to get rid of zombies
         pthread_detach(tid);
     }
 }
