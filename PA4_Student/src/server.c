@@ -155,7 +155,6 @@ void handle_enc_search(int client_fd)
 
     // Send the search results message to the client
     msg_enum rsp = SEARCH_RESULTS;
-    // Send the search results message to the client
     if (write(client_fd, &rsp, sizeof(msg_enum)) != (ssize_t)sizeof(msg_enum))
         return;
     // Send the number of results to the client if its less than the max results size
