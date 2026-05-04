@@ -33,12 +33,34 @@ void bookeepingCode()
 // Used to lightly obfuscate the query sent by ENC_SEARCH_ITEM.
 // Shifts letters only; non-letters are passthrough.
 // Wraps at the end of the alphabet: 'y'->'a', 'z'->'b', 'Y'->'A', 'Z'->'B'.
-void encrypt_str(char *s)
+static void shift_letter(char *c, int delta)
 {
-    //TODO
+    unsigned char ch = (unsigned char)*c;
+    if (ch >= 'a' && ch <= 'z') {
+        int i = ch - 'a';
+        i = (i + delta) % 26;
+        if (i < 0)
+            i += 26;
+        *c = (char)('a' + i);
+    } else if (ch >= 'A' && ch <= 'Z') {
+        int i = ch - 'A';
+        i = (i + delta) % 26;
+        if (i < 0)
+            i += 26;
+        *c = (char)('A' + i);
+    }
 }
 
+// Encrypts a string by shifting each letter right by 2.
+void encrypt_str(char *s)
+{
+    for (; *s; s++)
+        shift_letter(s, 2);
+}
+
+// Decrypts a string by shifting each letter left by 2.
 void decrypt_str(char *s)
 {
-    //TODO
+    for (; *s; s++)
+        shift_letter(s, -2);
 }
