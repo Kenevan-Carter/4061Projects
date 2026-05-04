@@ -56,12 +56,29 @@ void get_item_list(int sock_fd, FILE *log_fp)
 
 void search_item(int sock_fd, char *query, FILE *log_fp)
 {
+
+
     int count = 0;
     // TODO
+    uint8_t op = SEARCH_ITEM;
+    write(sock_fd, &op, 1);
+    char buf[MAX_STR] = {0};
+    strncpy(buf, query, MAX_STR - 1);
+    write(sock_fd, buf, MAX_STR);
+    read(sock_fd, &op, 1);   // SEARCH_RESULTS
+    read(sock_fd, &count, sizeof(count));
+    count = ntohl(count);
     fprintf(log_fp, "=== Search results for \"%s\" (%d matches) ===\n", query, count);
     // TODO: for each match:
     //   fprintf(log_fp, "  %s | stock: %d | price: $%.2f\n",
     //           it.name, it.stock, it.price);
+    for (int i = 0; i < count; i++) {
+        struct item it;
+        read(sock_fd, &it, sizeof(it));
+        it.stock = ntohl(it.stock);
+        fprintf(log_fp, "  %s | stock: %d | price: $%.2f\n",
+                it.name, it.stock, it.price);
+    }
     fprintf(log_fp, "\n");
 }
 
@@ -70,49 +87,129 @@ void search_item(int sock_fd, char *query, FILE *log_fp)
 void enc_search_item(int sock_fd, char *query, FILE *log_fp)
 {
     int count = 0;
-    // TODO (bonus)
+
+
+    uint8_t op = ENC_SEARCH_ITEM;
+    write(sock_fd, &op, 1);
+    char buf[MAX_STR] = {0};
+
+    strncpy(buf, query, MAX_STR - 1);
+    encrypt_str(buf);
+    write(sock_fd, buf, MAX_STR);
+
+
+    read(sock_fd, &op, 1); 
+    read(sock_fd, &count, sizeof(count));
+    count = ntohl(count);
     fprintf(log_fp, "=== Search results for \"%s\" (%d matches) ===\n", query, count);
     // TODO (bonus): for each match:
     //   fprintf(log_fp, "  %s | stock: %d | price: $%.2f\n",
     //           it.name, it.stock, it.price);
+    for (int i = 0; i < count; i++) {
+        struct item it;
+        read(sock_fd, &it, sizeof(it));
+        it.stock = ntohl(it.stock);
+        fprintf(log_fp, "  %s | stock: %d | price: $%.2f\n",
+                it.name, it.stock, it.price);
+    }
     fprintf(log_fp, "\n");
 }
 
 void get_stock(int sock_fd, char *item_name, FILE *log_fp)
 {
+
+
     int stock = 0;
     float price = 0;
     char err[MAX_STR] = {0};
-    // TODO: on success:
-    fprintf(log_fp, "Stock check: %s | stock: %d | price: $%.2f\n\n",
-            item_name, stock, price);
+    uint8_t op = GET_STOCK;
+    write(sock_fd, &op, 1);
+    char buf[MAX_STR] = {0};
+    strncpy(buf, item_name, MAX_STR - 1);
+
+    write(sock_fd, buf, MAX_STR);
+    read(sock_fd, &op, 1);
+        // TODO: on success:
+
+    if (op == STOCK_INFO) {
+        read(sock_fd, &stock, sizeof(stock)); stock = ntohl(stock);
+        read(sock_fd, &price, sizeof(price));
+        fprintf(log_fp, "Stock check: %s | stock: %d | price: $%.2f\n\n",
+                item_name, stock, price);
+    } 
     // TODO: on error:
     //   fprintf(log_fp, "Stock check error for %s: %s\n\n", item_name, err);
+    else {
+        read(sock_fd, err, MAX_STR);
+        fprintf(log_fp, "Stock check error for %s: %s\n\n", item_name, err);
+    }
     (void)err;
 }
 
 void buy_item(int sock_fd, char *item_name, int amount, FILE *log_fp)
 {
+
     int new_stock = 0;
+
+
     float total_cost = 0;
     char err[MAX_STR] = {0};
+
+    uint8_t op = BUY_ITEM;
+    write(sock_fd, &op, 1);
+
+
+    char buf[MAX_STR] = {0};
+
+    strncpy(buf, item_name, MAX_STR - 1);
+    write(sock_fd, buf, MAX_STR);
+    int net = htonl(amount);
+    write(sock_fd, &net, sizeof(net));
+    read(sock_fd, &op, 1);
     // TODO: on success:
-    fprintf(log_fp, "Bought %d x %s for $%.2f (remaining stock: %d)\n\n",
-            amount, item_name, total_cost, new_stock);
+    if (op == BUY_OK) {
+        read(sock_fd, &new_stock,  sizeof(new_stock));  new_stock = ntohl(new_stock);
+        read(sock_fd, &total_cost, sizeof(total_cost));
+        fprintf(log_fp, "Bought %d x %s for $%.2f (remaining stock: %d)\n\n",
+                amount, item_name, total_cost, new_stock);
+    } 
     // TODO: on error:
     //   fprintf(log_fp, "Buy error for %s: %s\n\n", item_name, err);
+    else {
+        read(sock_fd, err, MAX_STR);
+        fprintf(log_fp, "Buy error for %s: %s\n\n", item_name, err);
+    }
     (void)err;
 }
 
 void sell_item(int sock_fd, char *item_name, int amount, FILE *log_fp)
 {
+
     int new_stock = 0;
     char err[MAX_STR] = {0};
+
+    uint8_t op = SELL_ITEM;
+    write(sock_fd, &op, 1);
+    
+    char buf[MAX_STR] = {0};
+    strncpy(buf, item_name, MAX_STR - 1);
+    write(sock_fd, buf, MAX_STR);
+    int net = htonl(amount);
+    write(sock_fd, &net, sizeof(net));
+    read(sock_fd, &op, 1);
     // TODO: on success:
-    fprintf(log_fp, "Sold %d x %s (new stock: %d)\n\n",
-            amount, item_name, new_stock);
+    if (op == SELL_OK) {
+        read(sock_fd, &new_stock, sizeof(new_stock)); new_stock = ntohl(new_stock);
+        fprintf(log_fp, "Sold %d x %s (new stock: %d)\n\n",
+                amount, item_name, new_stock);
+    } 
     // TODO: on error:
     //   fprintf(log_fp, "Sell error for %s: %s\n\n", item_name, err);
+    
+    else {
+        read(sock_fd, err, MAX_STR);
+        fprintf(log_fp, "Sell error for %s: %s\n\n", item_name, err);
+    }
     (void)err;
 }
 
